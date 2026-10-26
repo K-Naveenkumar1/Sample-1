@@ -1,0 +1,1047 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRIVELINE — Vehicle Service Management System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+tailwind.config={
+  theme:{
+    extend:{
+      fontFamily:{
+        sans:['Instrument Sans','sans-serif'],
+        display:['Space Grotesk','sans-serif'],
+        mono:['JetBrains Mono','monospace']
+      },
+      colors:{
+        ink:'#0F1115',
+        paper:'#F9F7F3',
+        brand:'#FF4D1C',
+        lime:'#D6FF2A',
+        muted:'#6B7280'
+      }
+    }
+  }
+}
+</script>
+<style>
+*{scroll-behavior:smooth}
+body{background:#F9F7F3;color:#0F1115}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:#0F1115;border-radius:999px}
+.glass{backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.card-shadow{box-shadow:0 20px 40px -12px rgba(0,0,0,0.12)}
+.step-active{background:#0F1115;color:#fff}
+.step-done{background:#D6FF2A;color:#0F1115}
+.calendar-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:999px;font-size:13px;cursor:pointer;transition:.15s}
+.calendar-day:hover:not(.disabled):not(.selected){background:#E5E7EB}
+.calendar-day.selected{background:#0F1115;color:#fff}
+.calendar-day.disabled{color:#CBD5E1;cursor:not-allowed}
+.calendar-day.today{border:1px solid #0F1115}
+.shimmer{background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 37%,#f0f0f0 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.confetti{position:absolute;width:10px;height:10px;animation:fall 3s linear forwards}
+@keyframes fall{0%{transform:translateY(-20vh) rotate(0deg)}100%{transform:translateY(100vh) rotate(720deg)}}
+.range{accent-color:#FF4D1C}
+</style>
+</head>
+<body class="font-sans antialiased">
+
+<!-- Top Utility -->
+<div class="bg-ink text-white text-[11px] tracking-[0.18em] font-medium">
+  <div class="max-w-[1280px] mx-auto px-4 md:px-6 py-2 flex items-center justify-between">
+    <div class="flex items-center gap-6">
+      <span class="hidden md:inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-lime"></span> SYSTEM ONLINE — SUPABASE CONNECTED</span>
+      <span class="inline-flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> +1 (800) DRIVELINE</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span class="hidden md:inline">Mon–Sat 7:00–19:00 • 24/7 Emergency</span>
+      <button onclick="showView('backend')" class="bg-white text-ink px-3 py-1 rounded-full font-bold tracking-wide hover:bg-lime transition">DEV / API</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav class="sticky top-0 z-40 bg-paper/90 glass border-b border-black/5">
+  <div class="max-w-[1280px] mx-auto px-4 md:px-6 h-[64px] flex items-center justify-between">
+    <div class="flex items-center gap-8">
+      <div class="flex items-center gap-3 cursor-pointer" onclick="showView('landing')">
+        <div class="w-9 h-9 bg-ink text-white rounded-xl flex items-center justify-center">
+          <i data-lucide="wrench" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="font-display font-bold leading-none text-[18px] tracking-tight">DRIVELINE</div>
+          <div class="text-[10px] tracking-[0.2em] font-semibold text-muted -mt-0.5">SERVICE OS v2.4</div>
+        </div>
+      </div>
+      <div class="hidden lg:flex items-center gap-1 bg-white rounded-full p-1 border border-black/5">
+        <button onclick="showView('landing')" class="nav-pill px-4 py-2 rounded-full text-sm font-medium bg-ink text-white" data-nav="landing">Home</button>
+        <button onclick="showView('vehicles')" class="nav-pill px-4 py-2 rounded-full text-sm font-medium hover:bg-zinc-100" data-nav="vehicles">Vehicles</button>
+        <button onclick="showView('booking')" class="nav-pill px-4 py-2 rounded-full text-sm font-medium hover:bg-zinc-100" data-nav="booking">Book Service</button>
+        <button onclick="showView('backend')" class="nav-pill px-4 py-2 rounded-full text-sm font-medium hover:bg-zinc-100" data-nav="backend">Backend</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="hidden md:flex items-center gap-2 text-sm font-medium">
+        <span class="w-8 h-8 rounded-full bg-white border flex items-center justify-center"><i data-lucide="user" class="w-4 h-4"></i></span>
+        <span class="hidden xl:inline">Alex Rivera</span>
+      </div>
+      <button onclick="toggleCart(true)" class="relative bg-brand text-white rounded-full px-5 py-2.5 font-semibold text-sm flex items-center gap-2 hover:brightness-110 transition">
+        <i data-lucide="shopping-bag" class="w-4 h-4"></i> Cart
+        <span id="cartCount" class="bg-white text-ink rounded-full min-w-[22px] h-[22px] flex items-center justify-center text-xs font-bold px-1">0</span>
+      </button>
+      <button onclick="toggleMobile()" class="lg:hidden w-10 h-10 bg-white border rounded-full flex items-center justify-center"><i data-lucide="menu" class="w-5 h-5"></i></button>
+    </div>
+  </div>
+  <!-- Mobile menu -->
+  <div id="mobileMenu" class="hidden lg:hidden border-t bg-white px-4 py-4 space-y-3">
+    <button onclick="showView('landing');toggleMobile()" class="w-full text-left py-2 font-medium">Home</button>
+    <button onclick="showView('vehicles');toggleMobile()" class="w-full text-left py-2 font-medium">Vehicles</button>
+    <button onclick="showView('booking');toggleMobile()" class="w-full text-left py-2 font-medium">Book Service</button>
+    <button onclick="showView('checkout');toggleMobile()" class="w-full text-left py-2 font-medium">Checkout</button>
+  </div>
+</nav>
+
+<!-- Stepper (visible during flow) -->
+<div id="stepper" class="bg-white border-b sticky top-[64px] z-30">
+  <div class="max-w-[1280px] mx-auto px-4 md:px-6 py-4">
+    <div class="flex items-center justify-between gap-2 overflow-x-auto">
+      <div class="flex items-center gap-2 min-w-max">
+        <div class="step flex items-center gap-2" data-step="1">
+          <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border step-active">1</span>
+          <span class="text-sm font-semibold">Vehicle</span>
+        </div>
+        <span class="w-8 h-[2px] bg-zinc-200"></span>
+        <div class="step flex items-center gap-2" data-step="2">
+          <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border bg-white">2</span>
+          <span class="text-sm font-medium text-muted">Services</span>
+        </div>
+        <span class="w-8 h-[2px] bg-zinc-200"></span>
+        <div class="step flex items-center gap-2" data-step="3">
+          <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border bg-white">3</span>
+          <span class="text-sm font-medium text-muted">Schedule</span>
+        </div>
+        <span class="w-8 h-[2px] bg-zinc-200"></span>
+        <div class="step flex items-center gap-2" data-step="4">
+          <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border bg-white">4</span>
+          <span class="text-sm font-medium text-muted">Payment</span>
+        </div>
+      </div>
+      <div class="hidden md:flex items-center gap-3 text-xs">
+        <span class="px-3 py-1.5 rounded-full bg-lime font-bold flex items-center gap-1"><span class="w-2 h-2 bg-ink rounded-full"></span> SECURE SSL • SUPABASE</span>
+        <span class="text-muted">Booking ID: <b id="miniBookingId" class="text-ink">#DL-0000</b></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-[1280px] mx-auto px-4 md:px-6">
+
+<!-- LANDING VIEW -->
+<section id="view-landing" class="py-6 md:py-8">
+  <div class="grid lg:grid-cols-[1.1fr_0.9fr] gap-6">
+    <!-- Hero -->
+    <div class="bg-ink rounded-[28px] overflow-hidden relative text-white p-6 md:p-10 card-shadow min-h-[520px] flex flex-col">
+      <div class="absolute inset-0 opacity-40 pointer-events-none" style="background: radial-gradient(600px 300px at 20% 0%, #FF4D1C 0%, transparent 60%), radial-gradient(700px 400px at 90% 100%, #D6FF2A 0%, transparent 60%)"></div>
+      <div class="relative z-10 flex-1">
+        <div class="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide">
+          <span class="bg-lime text-ink px-2 py-0.5 rounded-full font-bold">NEW</span> Fleet OS • Real-time diagnostics
+        </div>
+        <h1 class="font-display font-bold text-[36px] md:text-[54px] leading-[0.9] mt-6">Precision care<br>for every <span class="text-lime">mile.</span></h1>
+        <p class="text-white/70 mt-4 max-w-[520px] text-[15px] leading-relaxed">Select your vehicle, build your service pack, pick a slot — pay securely. Your garage in the cloud, powered by Node.js + Supabase.</p>
+        <div class="flex flex-wrap gap-3 mt-8">
+          <button onclick="showView('vehicles')" class="bg-brand text-white rounded-full px-7 py-3.5 font-bold flex items-center gap-2 hover:brightness-110 transition">Start Booking <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+          <button onclick="showView('backend')" class="bg-white text-ink rounded-full px-7 py-3.5 font-bold flex items-center gap-2">Explore API <i data-lucide="code-2" class="w-4 h-4"></i></button>
+        </div>
+        <div class="grid grid-cols-3 gap-4 mt-10">
+          <div class="bg-white/10 rounded-2xl p-4 border border-white/10">
+            <div class="text-2xl font-display font-bold">4.9/5</div><div class="text-xs text-white/60">12,482 verified reviews</div>
+          </div>
+          <div class="bg-white/10 rounded-2xl p-4 border border-white/10">
+            <div class="text-2xl font-display font-bold">42k+</div><div class="text-xs text-white/60">Vehicles serviced</div>
+          </div>
+          <div class="bg-lime rounded-2xl p-4 text-ink">
+            <div class="text-2xl font-display font-bold">15 min</div><div class="text-xs font-semibold">Avg. check-in</div>
+          </div>
+        </div>
+      </div>
+      <div class="relative z-10 mt-6 flex items-center gap-3 text-xs text-white/60">
+        <img src="https://i.pravatar.cc/100?img=32" class="w-8 h-8 rounded-full border-2 border-white/20">
+        <img src="https://i.pravatar.cc/100?img=15" class="w-8 h-8 rounded-full border-2 border-white/20 -ml-3">
+        <img src="https://i.pravatar.cc/100?img=11" class="w-8 h-8 rounded-full border-2 border-white/20 -ml-3">
+        <span>Trusted by drivers from Tesla, Porsche, BMW fleets</span>
+      </div>
+      <img src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=800&auto=format&fit=crop" class="absolute right-0 bottom-0 w-[46%] h-[46%] object-cover rounded-tl-[24px] opacity-90 hidden md:block">
+    </div>
+
+    <!-- Right stack -->
+    <div class="space-y-6">
+      <div class="bg-white rounded-[24px] p-5 card-shadow border border-black/5">
+        <div class="flex items-center justify-between">
+          <h3 class="font-display font-bold text-lg">Today’s availability</h3>
+          <span class="text-xs font-bold bg-ink text-white px-3 py-1 rounded-full">LIVE</span>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mt-4 text-sm">
+          <div class="bg-paper border rounded-2xl p-3 text-center"><div class="font-bold">09:00 AM</div><div class="text-xs text-muted">2 slots</div><span class="inline-block mt-2 w-2 h-2 bg-emerald-500 rounded-full"></span> Open</div>
+          <div class="bg-paper border rounded-2xl p-3 text-center"><div class="font-bold">11:30 AM</div><div class="text-xs text-muted">1 slot</div><span class="inline-block mt-2 w-2 h-2 bg-amber-500 rounded-full"></span> Filling</div>
+          <div class="bg-paper border rounded-2xl p-3 text-center"><div class="font-bold">02:00 PM</div><div class="text-xs text-muted">4 slots</div><span class="inline-block mt-2 w-2 h-2 bg-emerald-500 rounded-full"></span> Open</div>
+        </div>
+        <div class="mt-4 flex items-center gap-3 p-3 bg-lime/30 rounded-2xl border border-lime">
+          <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center"><i data-lucide="shield-check" class="w-5 h-5"></i></div>
+          <div class="text-sm"><b>Secure checkout</b><div class="text-xs text-muted">256-bit encrypted • Supabase Row Level Security</div></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-[24px] p-5 card-shadow border border-black/5">
+        <h3 class="font-display font-bold">How it works</h3>
+        <div class="grid grid-cols-3 gap-3 mt-4">
+          <div class="text-center"><div class="w-12 h-12 mx-auto bg-paper border rounded-2xl flex items-center justify-center"><i data-lucide="car" class="w-5 h-5"></i></div><div class="text-xs font-bold mt-2">1. Choose Vehicle</div><div class="text-[11px] text-muted">Model & year</div></div>
+          <div class="text-center"><div class="w-12 h-12 mx-auto bg-paper border rounded-2xl flex items-center justify-center"><i data-lucide="settings-2" class="w-5 h-5"></i></div><div class="text-xs font-bold mt-2">2. Pick Services</div><div class="text-[11px] text-muted">Oil, brakes, etc.</div></div>
+          <div class="text-center"><div class="w-12 h-12 mx-auto bg-paper border rounded-2xl flex items-center justify-center"><i data-lucide="calendar-check" class="w-5 h-5"></i></div><div class="text-xs font-bold mt-2">3. Pay & Go</div><div class="text-[11px] text-muted">Confirm instantly</div></div>
+        </div>
+      </div>
+
+      <div class="bg-lime rounded-[24px] p-5 flex items-center justify-between card-shadow">
+        <div>
+          <div class="font-display font-bold text-lg leading-none">Need fleet service?</div>
+          <div class="text-sm">Up to 30 vehicles • priority bay</div>
+        </div>
+        <button class="bg-ink text-white rounded-full px-5 py-2.5 font-bold text-sm">Contact Fleet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trust logos -->
+  <div class="mt-8 bg-white rounded-[20px] border p-4 flex flex-wrap items-center justify-between gap-4 text-xs font-bold tracking-widest text-muted">
+    <span>POWERED BY SUPABASE + EXPRESS</span>
+    <span class="hidden md:inline">★ TRUSTPILOT 4.9</span>
+    <span>REST API • ROW LEVEL SECURITY • WEBHOOKS</span>
+  </div>
+</section>
+
+<!-- VEHICLES VIEW -->
+<section id="view-vehicles" class="hidden py-6">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="font-display font-bold text-[28px] leading-none">Select your vehicle</h2>
+      <p class="text-sm text-muted">We auto-load service packs for your model. Change anytime.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="relative">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted"></i>
+        <input id="vehicleSearch" placeholder="Search model, e.g. Vanguard" class="pl-9 pr-4 py-2.5 bg-white border rounded-full text-sm w-[240px] focus:outline-none focus:ring-2 focus:ring-ink">
+      </div>
+      <select id="vehicleFilter" class="bg-white border rounded-full px-4 py-2.5 text-sm font-medium">
+        <option value="all">All types</option>
+        <option value="Sedan">Sedan</option>
+        <option value="SUV">SUV</option>
+        <option value="Coupe">Coupe</option>
+        <option value="Pickup">Pickup</option>
+        <option value="EV">EV</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="mt-6 grid lg:grid-cols-[320px_1fr] gap-6">
+    <!-- Selected card -->
+    <div class="bg-white rounded-[24px] border p-5 card-shadow h-fit">
+      <div class="text-xs font-bold tracking-widest text-muted">CURRENT SELECTION</div>
+      <div id="selectedVehicleCard" class="mt-3 bg-paper rounded-[20px] p-4 border">
+        <div class="w-full h-36 bg-white rounded-2xl overflow-hidden flex items-center justify-center border">
+          <img id="selectedVehicleImg" src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=600&auto=format&fit=crop" class="w-full h-full object-cover">
+        </div>
+        <div class="mt-4">
+          <div id="selectedVehicleName" class="font-display font-bold text-lg leading-none">Vanguard S-350 • 2023</div>
+          <div id="selectedVehicleMeta" class="text-sm text-muted mt-1">2.0L Turbo • Sedan • 21,340 mi avg</div>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <span class="px-3 py-1 rounded-full bg-white border text-xs font-bold">VIN: 1HGCM82633A004352</span>
+            <span class="px-3 py-1 rounded-full bg-lime text-xs font-bold">Popular</span>
+          </div>
+          <button onclick="showView('booking')" class="w-full mt-4 bg-ink text-white rounded-full py-3 font-bold flex items-center justify-center gap-2">Continue to Services <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+          <div class="text-[11px] text-muted mt-2 text-center">You can change vehicle on service page</div>
+        </div>
+      </div>
+      <div class="mt-4 p-4 rounded-2xl bg-ink text-white">
+        <div class="text-sm font-bold flex items-center gap-2"><i data-lucide="info" class="w-4 h-4 text-lime"></i> Why we ask</div>
+        <div class="text-xs text-white/70 mt-1">Ensures correct parts, fluids and labor time estimation via Supabase vehicle catalog.</div>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div>
+      <div id="vehicleGrid" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      <!-- Service teaser -->
+      <div class="mt-6 bg-white rounded-[24px] border p-5">
+        <h3 class="font-display font-bold">Recommended service packs for <span id="packModel" class="text-brand">Vanguard S-350</span></h3>
+        <div id="servicePackGrid" class="grid md:grid-cols-3 gap-4 mt-4"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BOOKING VIEW -->
+<section id="view-booking" class="hidden py-6">
+  <div class="grid lg:grid-cols-[1.15fr_0.85fr] gap-6">
+    <!-- Left: Services -->
+    <div class="space-y-6">
+      <div class="bg-white rounded-[24px] border p-5 card-shadow">
+        <div class="flex items-center justify-between">
+          <h3 class="font-display font-bold text-lg">Choose services</h3>
+          <div class="flex items-center gap-2">
+            <select id="serviceCategory" class="bg-paper border rounded-full px-3 py-2 text-sm font-medium">
+              <option value="all">All categories</option>
+              <option value="Essential">Essential</option>
+              <option value="Brake & Safety">Brake & Safety</option>
+              <option value="Performance">Performance</option>
+              <option value="Care">Care</option>
+            </select>
+            <button onclick="clearCart()" class="text-xs font-bold underline">Clear</button>
+          </div>
+        </div>
+        <div id="servicesGrid" class="grid md:grid-cols-2 gap-4 mt-4"></div>
+      </div>
+
+      <div class="bg-white rounded-[24px] border p-5">
+        <h3 class="font-display font-bold">Your details & schedule</h3>
+        <div class="grid md:grid-cols-2 gap-4 mt-4">
+          <label class="text-sm font-semibold">Full Name<input id="custName" placeholder="Alex Rivera" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ink"></label>
+          <label class="text-sm font-semibold">Phone<input id="custPhone" placeholder="+1 (555) 000-0000" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ink"></label>
+          <label class="text-sm font-semibold">Email<input id="custEmail" placeholder="alex@email.com" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ink"></label>
+          <label class="text-sm font-semibold">License Plate<input id="custPlate" placeholder="7XYZ 123" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ink"></label>
+          <label class="text-sm font-semibold">Mileage<input id="custMiles" placeholder="e.g. 42350" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ink"></label>
+          <label class="text-sm font-semibold">Vehicle Model
+            <select id="vehicleDropdown" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm"></select>
+          </label>
+        </div>
+        <label class="text-sm font-semibold mt-4 block">Notes for technician<textarea id="custNotes" rows="3" placeholder="Any noise, warning lights, preferences..." class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ink"></textarea></label>
+      </div>
+    </div>
+
+    <!-- Right: Calendar + Summary -->
+    <div class="space-y-6">
+      <div class="bg-ink text-white rounded-[24px] p-5 card-shadow">
+        <div class="flex items-center justify-between">
+          <h3 class="font-display font-bold">Pick date & time</h3>
+          <span class="bg-white text-ink text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1"><span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Real-time bays</span>
+        </div>
+        <div class="mt-4 bg-white text-ink rounded-[20px] p-4">
+          <div class="flex items-center justify-between">
+            <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-full border flex items-center justify-center hover:bg-zinc-100"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+            <div id="calendarTitle" class="font-bold"></div>
+            <button onclick="changeMonth(1)" class="w-8 h-8 rounded-full border flex items-center justify-center hover:bg-zinc-100"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+          </div>
+          <div class="grid grid-cols-7 gap-1 text-[11px] font-bold tracking-wide text-muted text-center mt-3">
+            <div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div><div>SUN</div>
+          </div>
+          <div id="calendarGrid" class="grid grid-cols-7 gap-1 mt-2"></div>
+          <div class="mt-4">
+            <div class="text-xs font-bold tracking-widest text-muted">AVAILABLE TIMES</div>
+            <div id="timeSlots" class="grid grid-cols-2 gap-2 mt-2"></div>
+            <div id="timeHint" class="text-xs text-muted mt-2">Select a date to see times.</div>
+          </div>
+        </div>
+        <div class="mt-4 p-4 rounded-2xl bg-white/10 border border-white/15">
+          <div class="text-sm font-bold flex items-center gap-2"><i data-lucide="clock-3" class="w-4 h-4 text-lime"></i> Estimated total time: <span id="totalDuration">0 min</span></div>
+          <div class="text-xs text-white/70">We’ll confirm bay assignment via SMS after payment.</div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-[24px] border p-5">
+        <h3 class="font-display font-bold">Order summary</h3>
+        <div id="bookingSummary" class="mt-4 space-y-3"></div>
+        <div class="border-t mt-4 pt-4 space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-muted">Subtotal</span><span id="sumSubtotal" class="font-bold">$0</span></div>
+          <div class="flex justify-between"><span class="text-muted">Service fee (5%)</span><span id="sumFee" class="font-bold">$0</span></div>
+          <div class="flex justify-between"><span class="text-muted">Est. tax</span><span id="sumTax" class="font-bold">$0</span></div>
+          <div class="flex justify-between text-[15px]"><span class="font-bold">Total</span><span id="sumTotal" class="font-bold text-lg">$0</span></div>
+        </div>
+        <button onclick="goToCart()" class="w-full mt-4 bg-brand text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:brightness-110 transition">Review in Cart <i data-lucide="shopping-bag" class="w-4 h-4"></i></button>
+        <div class="flex items-center justify-center gap-2 text-[11px] text-muted mt-3"><i data-lucide="lock" class="w-3 h-3"></i> PCI-DSS • Stripe • Supabase Vault</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CART VIEW -->
+<section id="view-cart" class="hidden py-6">
+  <div class="grid lg:grid-cols-[1.2fr_0.8fr] gap-6">
+    <div class="bg-white rounded-[24px] border p-6 card-shadow">
+      <div class="flex items-center justify-between">
+        <h2 class="font-display font-bold text-xl">Your cart</h2>
+        <span id="cartItemsCount" class="bg-paper border rounded-full px-3 py-1 text-xs font-bold">0 items</span>
+      </div>
+      <div id="cartList" class="mt-6 space-y-4"></div>
+      <div class="mt-6 p-4 bg-paper border rounded-2xl flex flex-wrap gap-3 items-center justify-between">
+        <div class="flex items-center gap-2">
+          <input id="couponInput" placeholder="Coupon code (TRY: SAVE20)" class="bg-white border rounded-full px-4 py-2.5 text-sm w-[220px]">
+          <button onclick="applyCoupon()" class="bg-ink text-white rounded-full px-5 py-2.5 text-sm font-bold">Apply</button>
+        </div>
+        <div class="text-sm text-muted">Free car wash on orders $199+</div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button onclick="showView('booking')" class="flex-1 bg-white border rounded-full py-3 font-bold">← Back to Services</button>
+        <button onclick="showView('checkout')" class="flex-1 bg-brand text-white rounded-full py-3 font-bold flex items-center justify-center gap-2">Proceed to Checkout <i data-lucide="credit-card" class="w-4 h-4"></i></button>
+      </div>
+    </div>
+    <div class="space-y-6">
+      <div class="bg-white rounded-[24px] border p-6">
+        <h3 class="font-display font-bold">Appointment</h3>
+        <div id="cartAppointment" class="mt-3 p-4 bg-paper rounded-2xl border text-sm"></div>
+        <div class="mt-4 space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-muted">Subtotal</span><b id="cartSubtotal">$0</b></div>
+          <div class="flex justify-between"><span class="text-muted">Discount</span><b id="cartDiscount" class="text-emerald-600">-$0</b></div>
+          <div class="flex justify-between"><span class="text-muted">Tax & fees</span><b id="cartFees">$0</b></div>
+          <div class="h-px bg-zinc-200 my-2"></div>
+          <div class="flex justify-between text-lg"><span class="font-bold">Total</span><b id="cartTotal">$0</b></div>
+        </div>
+        <div class="mt-4 p-3 bg-lime/40 border border-lime rounded-2xl text-xs font-semibold">🔒 Your slot is held for 12:00 minutes</div>
+      </div>
+      <div class="bg-ink text-white rounded-[24px] p-6">
+        <div class="font-bold">What’s next?</div>
+        <ul class="text-sm text-white/70 mt-3 space-y-2 list-disc ml-4">
+          <li>Secure payment → instant confirmation</li>
+          <li>SMS + email with bay & advisor</li>
+          <li>Free reschedule up to 24h before</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHECKOUT VIEW -->
+<section id="view-checkout" class="hidden py-6">
+  <div class="grid lg:grid-cols-[1.1fr_0.9fr] gap-6">
+    <div class="bg-white rounded-[24px] border p-6 card-shadow">
+      <h2 class="font-display font-bold text-xl">Secure checkout</h2>
+      <p class="text-sm text-muted">Payment is processed via encrypted vault. We never store raw card numbers.</p>
+      <div class="mt-6 grid gap-4">
+        <div class="flex items-center gap-2 text-xs font-bold">
+          <span class="px-3 py-1 bg-ink text-white rounded-full">Card</span>
+          <span class="px-3 py-1 bg-paper border rounded-full">Apple Pay</span>
+          <span class="px-3 py-1 bg-paper border rounded-full">PayPal</span>
+        </div>
+        <label class="text-sm font-semibold">Card Number
+          <input id="ccNumber" placeholder="4242 4242 4242 4242" maxlength="19" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ink">
+          <span class="text-[11px] text-muted">Test card: 4242 4242 4242 4242</span>
+        </label>
+        <div class="grid grid-cols-2 gap-4">
+          <label class="text-sm font-semibold">Expiry<input id="ccExp" placeholder="MM / YY" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm"></label>
+          <label class="text-sm font-semibold">CVC<input id="ccCvc" placeholder="123" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm"></label>
+        </div>
+        <label class="text-sm font-semibold">Name on card<input id="ccName" placeholder="Alex Rivera" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm"></label>
+        <div class="grid grid-cols-2 gap-4">
+          <label class="text-sm font-semibold">ZIP / Postal<input id="ccZip" placeholder="90210" class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm"></label>
+          <label class="text-sm font-semibold">Country<select class="mt-2 w-full bg-paper border rounded-xl px-4 py-3 text-sm"><option>United States</option><option>Canada</option><option>UK</option></select></label>
+        </div>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" checked class="accent-black"> Save card for next service (Supabase Vault)</label>
+        <button onclick="processPayment()" id="payBtn" class="w-full bg-brand text-white rounded-full py-4 font-bold text-[15px] flex items-center justify-center gap-2 hover:brightness-110 transition">
+          <span id="payText">Pay & Confirm Booking — <span id="payAmount">$0</span></span>
+          <span id="paySpinner" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+        </button>
+        <div class="flex items-center justify-center gap-3 text-[11px] text-muted">
+          <span class="flex items-center gap-1"><i data-lucide="shield" class="w-3 h-3"></i> 256-bit SSL</span>
+          <span>•</span>
+          <span>PCI DSS Compliant</span>
+          <span>•</span>
+          <span>Supabase Encrypted</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div class="bg-paper border rounded-[24px] p-6">
+        <h3 class="font-display font-bold">Booking summary</h3>
+        <div id="checkoutSummary" class="mt-4 space-y-3 text-sm"></div>
+        <div class="border-t mt-4 pt-4 space-y-2 text-sm">
+          <div class="flex justify-between"><span class="text-muted">Vehicle</span><b id="ckVehicle">—</b></div>
+          <div class="flex justify-between"><span class="text-muted">When</span><b id="ckWhen">—</b></div>
+          <div class="flex justify-between"><span class="text-muted">Where</span><b>Downtown Bay 7 • 1420 Auto Row</b></div>
+          <div class="flex justify-between text-lg pt-2 border-t"><span class="font-bold">Total</span><b id="ckTotal">$0</b></div>
+        </div>
+      </div>
+      <div class="bg-lime rounded-[24px] p-5 border">
+        <div class="font-bold flex items-center gap-2"><i data-lucide="gift" class="w-4 h-4"></i> You’re saving with maintenance plan</div>
+        <div class="text-sm text-ink/70 mt-1">This booking earns 240 DRIVELINE points → $12 off next visit.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SUCCESS VIEW -->
+<section id="view-success" class="hidden py-8">
+  <div class="bg-white rounded-[32px] border card-shadow overflow-hidden relative">
+    <div id="confettiLayer" class="pointer-events-none absolute inset-0 overflow-hidden"></div>
+    <div class="grid lg:grid-cols-[1.1fr_0.9fr]">
+      <div class="p-8 md:p-10">
+        <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center"><i data-lucide="check" class="w-6 h-6"></i></div>
+        <h2 class="font-display font-bold text-[30px] leading-none mt-4">Booking confirmed!</h2>
+        <p class="text-muted text-sm mt-2">We’ve secured your bay and sent a confirmation to <b id="successEmail" class="text-ink">—</b></p>
+        <div class="mt-6 bg-paper border rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold tracking-widest text-muted">BOOKING ID</div>
+            <div id="successId" class="font-mono font-bold text-lg">#DL-000000</div>
+          </div>
+          <button onclick="copyId()" class="bg-white border rounded-full px-4 py-2 text-sm font-bold">Copy</button>
+        </div>
+        <div id="successDetails" class="mt-6 space-y-3 text-sm"></div>
+        <div class="flex flex-wrap gap-3 mt-8">
+          <button onclick="window.print()" class="bg-ink text-white rounded-full px-6 py-3 font-bold">Download Invoice</button>
+          <button onclick="showView('landing')" class="bg-white border rounded-full px-6 py-3 font-bold">Back to Home</button>
+        </div>
+        <div class="text-xs text-muted mt-6">Need to reschedule? Free change up to 24 hours before. Call <b class="text-ink">(800) 374-8534</b></div>
+      </div>
+      <div class="bg-paper border-l p-8 md:p-10">
+        <h3 class="font-display font-bold">What happens next</h3>
+        <ol class="mt-4 space-y-4 text-sm">
+          <li class="flex gap-3"><span class="w-7 h-7 rounded-full bg-ink text-white flex items-center justify-center text-xs font-bold">1</span><span><b>SMS confirmation</b> with advisor name & bay within 2 minutes.</span></li>
+          <li class="flex gap-3"><span class="w-7 h-7 rounded-full bg-white border flex items-center justify-center text-xs font-bold">2</span><span><b>Day-before reminder</b> with check-in QR.</span></li>
+          <li class="flex gap-3"><span class="w-7 h-7 rounded-full bg-white border flex items-center justify-center text-xs font-bold">3</span><span><b>Service complete</b> → digital report + video inspection.</span></li>
+        </ol>
+        <div class="mt-6 p-4 bg-white border rounded-2xl">
+          <div class="text-xs font-bold tracking-widest text-muted">YOUR ADVISOR</div>
+          <div class="flex items-center gap-3 mt-2">
+            <img src="https://i.pravatar.cc/100?img=8" class="w-10 h-10 rounded-full">
+            <div><div class="font-bold text-sm">Maya Chen • Senior Tech</div><div class="text-xs text-muted">4.9 ★ • 8 yrs • EV certified</div></div>
+            <a href="#" class="ml-auto text-xs font-bold underline">Message</a>
+          </div>
+        </div>
+        <div class="mt-4 p-4 bg-ink text-white rounded-2xl">
+          <div class="font-bold text-sm">Add to calendar</div>
+          <div class="text-xs text-white/70">We’ll also email you an .ics file.</div>
+          <div class="flex gap-2 mt-3"><span class="bg-white text-ink rounded-full px-3 py-1 text-xs font-bold">Google</span><span class="bg-white text-ink rounded-full px-3 py-1 text-xs font-bold">Apple</span><span class="bg-white text-ink rounded-full px-3 py-1 text-xs font-bold">Outlook</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BACKEND VIEW -->
+<section id="view-backend" class="hidden py-6">
+  <div class="bg-ink rounded-[24px] p-6 md:p-8 text-white card-shadow overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <div class="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-full px-3 py-1 text-xs font-bold tracking-widest"><span class="w-2 h-2 bg-lime rounded-full animate-pulse"></span> BACKEND • NODE + EXPRESS + SUPABASE</div>
+        <h2 class="font-display font-bold text-[26px] mt-3">Project structure & live API</h2>
+        <p class="text-white/60 text-sm max-w-[720px]">This demo simulates the full stack described in the prompt. Frontend is static; backend is mocked with local state that mirrors Supabase tables and Express routes.</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="seedData()" class="bg-lime text-ink rounded-full px-5 py-2.5 font-bold text-sm">Seed Demo Data</button>
+        <button onclick="showView('landing')" class="bg-white text-ink rounded-full px-5 py-2.5 font-bold text-sm">Back to App</button>
+      </div>
+    </div>
+
+    <div class="grid lg:grid-cols-[360px_1fr] gap-6 mt-8">
+      <div class="bg-white text-ink rounded-[20px] p-5">
+        <div class="font-mono text-xs font-bold tracking-widest">DIRECTORY TREE</div>
+        <div class="mt-3 font-mono text-[13px] leading-6 bg-paper border rounded-xl p-4">
+          <div>📁 vehicle-service/</div>
+          <div class="ml-4">📁 frontend/</div>
+          <div class="ml-8">📄 index.html</div>
+          <div class="ml-8">📁 pages/ <span class="text-muted">landing, vehicles, booking, cart, checkout</span></div>
+          <div class="ml-8">📁 css/ & js/</div>
+          <div class="ml-4">📁 backend/</div>
+          <div class="ml-8">📄 server.js <span class="bg-lime px-1 rounded">Express</span></div>
+          <div class="ml-8">📁 routes/ <span class="text-muted">auth, vehicles, bookings, payments</span></div>
+          <div class="ml-8">📄 supabase/schema.sql</div>
+          <div class="ml-8">📄 .env <span class="text-muted">SUPABASE_URL, KEY</span></div>
+        </div>
+        <div class="mt-4 p-4 bg-ink text-white rounded-xl">
+          <div class="text-xs font-bold tracking-widest text-white/60">SUPABASE TABLES</div>
+          <div class="mt-2 space-y-2 text-sm font-mono">
+            <div class="flex justify-between"><span>users</span><span class="text-lime">1,248 rows</span></div>
+            <div class="flex justify-between"><span>vehicles</span><span class="text-lime">18 rows</span></div>
+            <div class="flex justify-between"><span>bookings</span><span id="bkCount" class="text-lime">0 rows</span></div>
+            <div class="flex justify-between"><span>payments</span><span class="text-white/60">encrypted</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="bg-white text-ink rounded-[20px] p-5">
+          <div class="flex items-center justify-between">
+            <h3 class="font-display font-bold">REST API Endpoints</h3>
+            <span class="text-xs font-bold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">Base: /api • JWT • RLS</span>
+          </div>
+          <div class="grid md:grid-cols-2 gap-3 mt-4">
+            <div class="border rounded-2xl p-4">
+              <div class="text-xs font-mono font-bold"><span class="bg-ink text-white px-2 py-1 rounded">POST</span> /api/register</div>
+              <div class="text-xs text-muted mt-2">Create user → Supabase auth.users + profiles</div>
+              <button onclick="mockApi('register')" class="mt-3 bg-paper border rounded-full px-4 py-2 text-xs font-bold w-full">Try → 201 Created</button>
+            </div>
+            <div class="border rounded-2xl p-4">
+              <div class="text-xs font-mono font-bold"><span class="bg-white border px-2 py-1 rounded">GET</span> /api/vehicles</div>
+              <div class="text-xs text-muted mt-2">List vehicle models + service packs</div>
+              <button onclick="mockApi('vehicles')" class="mt-3 bg-paper border rounded-full px-4 py-2 text-xs font-bold w-full">Try → 200 OK</button>
+            </div>
+            <div class="border rounded-2xl p-4">
+              <div class="text-xs font-mono font-bold"><span class="bg-ink text-white px-2 py-1 rounded">POST</span> /api/book-service</div>
+              <div class="text-xs text-muted mt-2">Create booking + lock time slot (transaction)</div>
+              <button onclick="mockApi('book')" class="mt-3 bg-paper border rounded-full px-4 py-2 text-xs font-bold w-full">Try → 201 + booking_id</button>
+            </div>
+            <div class="border rounded-2xl p-4">
+              <div class="text-xs font-mono font-bold"><span class="bg-ink text-white px-2 py-1 rounded">POST</span> /api/payment</div>
+              <div class="text-xs text-muted mt-2">Stripe → Supabase payments, RLS secured</div>
+              <button onclick="mockApi('payment')" class="mt-3 bg-paper border rounded-full px-4 py-2 text-xs font-bold w-full">Try → 200 • vault_token</button>
+            </div>
+          </div>
+          <div id="apiResponse" class="mt-4 bg-ink text-white rounded-xl p-4 font-mono text-xs hidden"></div>
+        </div>
+
+        <div class="bg-white text-ink rounded-[20px] p-5">
+          <h3 class="font-display font-bold">server.js (Express) — preview</h3>
+          <pre class="mt-3 bg-paper border rounded-xl p-4 text-[12px] font-mono overflow-x-auto leading-6">import express from 'express';
+import { createClient } from '@supabase/supabase-js';
+
+const app = express();
+app.use(express.json());
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+app.get('/api/vehicles', async (req,res)=>{
+  const { data } = await supabase.from('vehicles').select('*');
+  res.json(data);
+});
+
+app.post('/api/book-service', async (req,res)=>{
+  const { user_id, vehicle_id, services, slot } = req.body;
+  // validation + RLS
+  const { data } = await supabase.from('bookings').insert({ user_id, vehicle_id, services, slot }).select().single();
+  res.status(201).json(data);
+});
+
+app.listen(3000, ()=> console.log('API on :3000'));</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- Cart Drawer -->
+<div id="cartDrawer" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="toggleCart(false)"></div>
+  <div class="absolute right-0 top-0 h-full w-[420px] max-w-[92vw] bg-white shadow-2xl flex flex-col">
+    <div class="p-6 border-b flex items-center justify-between">
+      <h3 class="font-display font-bold text-lg">Cart</h3>
+      <button onclick="toggleCart(false)" class="w-8 h-8 rounded-full bg-paper border flex items-center justify-center"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div id="drawerList" class="flex-1 overflow-auto p-6 space-y-4"></div>
+    <div class="p-6 border-t bg-paper">
+      <div class="flex justify-between text-sm"><span class="text-muted">Subtotal</span><b id="drawerSubtotal">$0</b></div>
+      <div class="flex justify-between text-lg font-bold mt-2"><span>Total</span><span id="drawerTotal">$0</span></div>
+      <button onclick="toggleCart(false); showView('checkout')" class="w-full mt-4 bg-ink text-white rounded-full py-3 font-bold">Checkout</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white px-5 py-3 rounded-full text-sm font-medium shadow-xl hidden z-50"></div>
+
+<footer class="mt-10 border-t bg-white">
+  <div class="max-w-[1280px] mx-auto px-4 md:px-6 py-8 flex flex-wrap items-center justify-between gap-4 text-sm">
+    <div class="font-display font-bold">© 2025 DRIVELINE Service OS • Built with HTML • Node.js • Supabase</div>
+    <div class="flex items-center gap-4 text-muted">
+      <span>Privacy</span><span>Terms</span><span class="flex items-center gap-1"><span class="w-2 h-2 bg-emerald-500 rounded-full"></span> All systems operational</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+lucide.createIcons();
+
+// Data
+const vehicles = [
+  {id:1, name:"Vanguard S-350", type:"Sedan", year:2023, engine:"2.0L Turbo", miles:"21k mi", img:"https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=600&auto=format&fit=crop", popular:true},
+  {id:2, name:"Terra X Trail", type:"SUV", year:2024, engine:"3.5L V6 AWD", miles:"18k mi", img:"https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=600&auto=format&fit=crop", popular:true},
+  {id:3, name:"Pulse E-Sport", type:"EV", year:2024, engine:"Dual Motor 420hp", miles:"12k mi", img:"https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=600&auto=format&fit=crop", popular:false},
+  {id:4, name:"Apex GT Coupe", type:"Coupe", year:2023, engine:"4.0L V8", miles:"9k mi", img:"https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=600&auto=format&fit=crop", popular:false},
+  {id:5, name:"Hauler Pro", type:"Pickup", year:2022, engine:"6.2L Diesel", miles:"34k mi", img:"https://images.unsplash.com/photo-1551836022-deb4988cc6c0?q=80&w=600&auto=format&fit=crop", popular:true},
+  {id:6, name:"Civicra Urban", type:"Sedan", year:2021, engine:"1.5L Hybrid", miles:"42k mi", img:"https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?q=80&w=600&auto=format&fit=crop", popular:false},
+];
+const servicesCatalog = [
+  {id:"oil", name:"Full Synthetic Oil + Filter", desc:"5W-30 synthetic, OEM filter, 21-pt inspection", price:79, duration:45, cat:"Essential", icon:"droplet"},
+  {id:"brake", name:"Brake Pads & Inspection", desc:"Front pads, rotor check, fluid top-up", price:189, duration:90, cat:"Brake & Safety", icon:"shield"},
+  {id:"tire", name:"Tire Rotation & Balance", desc:"Rotate, balance, pressure calibration", price:59, duration:40, cat:"Essential", icon:"circle-dot"},
+  {id:"diag", name:"Full Diagnostic Scan", desc:"OBD-II + battery + ADAS check", price:49, duration:30, cat:"Performance", icon:"cpu"},
+  {id:"detail", name:"Interior Deep Clean", desc:"Shampoo, steam, odor treatment", price:129, duration:120, cat:"Care", icon:"sparkles"},
+  {id:"ac", name:"A/C Recharge & Filter", desc:"Refrigerant + cabin filter", price:119, duration:60, cat:"Care", icon:"wind"},
+  {id:"align", name:"4-Wheel Alignment", desc:"Laser alignment + report", price:99, duration:50, cat:"Brake & Safety", icon:"align-center"},
+  {id:"battery", name:"Battery Test & Replace", desc:"Load test, terminal clean, install", price:159, duration:35, cat:"Essential", icon:"battery"},
+];
+
+let selectedVehicle = vehicles[0];
+let cart = [];
+let coupon = null;
+let selectedDate = null;
+let selectedTime = null;
+let currentMonth = new Date();
+let bookingId = "DL-" + Math.floor(100000 + Math.random()*900000);
+
+// Init
+function init(){
+  document.getElementById('miniBookingId').textContent = "#"+bookingId;
+  renderVehicles();
+  renderServicePacks();
+  renderServices();
+  renderVehicleDropdown();
+  buildCalendar();
+  updateSummaries();
+  document.getElementById('vehicleSearch').addEventListener('input', renderVehicles);
+  document.getElementById('vehicleFilter').addEventListener('change', renderVehicles);
+  document.getElementById('serviceCategory').addEventListener('change', renderServices);
+  document.getElementById('vehicleDropdown').addEventListener('change', e=>{
+    selectedVehicle = vehicles.find(v=>v.id==e.target.value);
+    syncSelectedCard();
+    renderServicePacks();
+    updateSummaries();
+  });
+  // card formatting
+  document.getElementById('ccNumber').addEventListener('input', e=>{
+    e.target.value = e.target.value.replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim().slice(0,19);
+  });
+}
+function renderVehicles(){
+  const q = document.getElementById('vehicleSearch').value.toLowerCase();
+  const f = document.getElementById('vehicleFilter').value;
+  const grid = document.getElementById('vehicleGrid');
+  const filtered = vehicles.filter(v=> (f==='all'||v.type===f) && v.name.toLowerCase().includes(q));
+  grid.innerHTML = filtered.map(v=>`
+    <div onclick="selectVehicle(${v.id})" class="cursor-pointer bg-white rounded-[20px] border p-3 flex gap-3 items-center hover:border-ink hover:shadow-md transition ${selectedVehicle.id===v.id?'border-ink ring-2 ring-ink/10':''}">
+      <img src="${v.img}" class="w-20 h-20 rounded-2xl object-cover border">
+      <div class="flex-1">
+        <div class="font-bold leading-none">${v.name} <span class="text-muted font-medium">• ${v.year}</span></div>
+        <div class="text-xs text-muted mt-1">${v.engine} • ${v.type} • ${v.miles}</div>
+        <div class="flex gap-2 mt-2">${v.popular?'<span class="text-[10px] font-bold bg-lime px-2 py-1 rounded-full">POPULAR</span>':''}<span class="text-[10px] font-bold bg-paper border px-2 py-1 rounded-full">VIN MATCH</span></div>
+      </div>
+      <div class="w-8 h-8 rounded-full border flex items-center justify-center ${selectedVehicle.id===v.id?'bg-ink text-white':'bg-white'}"><i data-lucide="${selectedVehicle.id===v.id?'check':'plus'}" class="w-4 h-4"></i></div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+function selectVehicle(id){
+  selectedVehicle = vehicles.find(v=>v.id===id);
+  syncSelectedCard();
+  renderVehicles();
+  renderServicePacks();
+  renderVehicleDropdown();
+  updateSummaries();
+  toast(`Selected ${selectedVehicle.name}`);
+}
+function syncSelectedCard(){
+  document.getElementById('selectedVehicleName').textContent = `${selectedVehicle.name} • ${selectedVehicle.year}`;
+  document.getElementById('selectedVehicleMeta').textContent = `${selectedVehicle.engine} • ${selectedVehicle.type} • ${selectedVehicle.miles} avg`;
+  document.getElementById('selectedVehicleImg').src = selectedVehicle.img;
+  document.getElementById('packModel').textContent = selectedVehicle.name;
+  document.getElementById('vehicleDropdown').value = selectedVehicle.id;
+}
+function renderServicePacks(){
+  const packs = [
+    {name:"Essential Care", price:149, items:["oil","tire","diag"]},
+    {name:"Safety Plus", price:279, items:["brake","align","diag"]},
+    {name:"Total Refresh", price:399, items:["oil","detail","ac","tire"]},
+  ];
+  document.getElementById('servicePackGrid').innerHTML = packs.map(p=>`
+    <div class="bg-paper border rounded-2xl p-4">
+      <div class="font-bold text-sm">${p.name}</div>
+      <div class="text-xs text-muted">${p.items.length} services • Save ~$40</div>
+      <div class="font-display font-bold mt-2">$${p.price}</div>
+      <button onclick="addPack(${JSON.stringify(p.items).replace(/"/g,'&quot;')})" class="w-full mt-3 bg-white border rounded-full py-2 text-sm font-bold hover:bg-ink hover:text-white transition">Add pack</button>
+    </div>
+  `).join('');
+}
+function addPack(items){
+  // items is stringified
+  if(typeof items === 'string') items = JSON.parse(items.replaceAll('&quot;','"'));
+  if(Array.isArray(items) && typeof items[0]==='string' && items[0].startsWith('[')) items = JSON.parse(items);
+  // Actually our handler passes array directly, handle both
+  try{ if(typeof items==='string') items=JSON.parse(items);}catch{}
+  (items||[]).forEach(id=> addToCart(id,false));
+  updateSummaries(); toast('Pack added to cart');
+}
+
+function renderServices(){
+  const cat = document.getElementById('serviceCategory').value;
+  const grid = document.getElementById('servicesGrid');
+  const filtered = servicesCatalog.filter(s=> cat==='all'|| s.cat===cat);
+  grid.innerHTML = filtered.map(s=>{
+    const inCart = cart.find(c=>c.id===s.id);
+    return `
+    <div class="border rounded-[20px] p-4 bg-paper hover:bg-white hover:shadow-md transition">
+      <div class="flex items-start justify-between gap-3">
+        <div class="w-10 h-10 bg-white border rounded-xl flex items-center justify-center"><i data-lucide="${s.icon}" class="w-5 h-5"></i></div>
+        <span class="text-xs font-bold bg-white border px-2.5 py-1 rounded-full">${s.cat}</span>
+      </div>
+      <div class="font-bold mt-3 leading-tight">${s.name}</div>
+      <div class="text-xs text-muted mt-1 leading-relaxed">${s.desc}</div>
+      <div class="flex items-center justify-between mt-4">
+        <div><div class="font-display font-bold text-lg">$${s.price}</div><div class="text-[11px] text-muted">${s.duration} min • ${s.cat}</div></div>
+        <button onclick="toggleService('${s.id}')" class="rounded-full px-4 py-2 text-sm font-bold border ${inCart?'bg-ink text-white':'bg-white hover:bg-ink hover:text-white'}">${inCart?'Added ✓':'Add to cart'}</button>
+      </div>
+    </div>`
+  }).join('');
+  lucide.createIcons();
+}
+function toggleService(id){ addToCart(id,true) }
+function addToCart(id, doRender=true){
+  const svc = servicesCatalog.find(s=>s.id===id);
+  const idx = cart.findIndex(c=>c.id===id);
+  if(idx>-1){ cart.splice(idx,1); } else { cart.push({...svc, vehicle: selectedVehicle.name}); }
+  renderServices();
+  updateSummaries();
+  if(doRender) toast(cart.find(c=>c.id===id)?`Added ${svc.name}`:`Removed ${svc.name}`);
+}
+function renderVehicleDropdown(){
+  document.getElementById('vehicleDropdown').innerHTML = vehicles.map(v=>`<option value="${v.id}" ${v.id===selectedVehicle.id?'selected':''}>${v.name} • ${v.year} • ${v.engine}</option>`).join('');
+}
+
+// Calendar
+function buildCalendar(){
+  const title = document.getElementById('calendarTitle');
+  const grid = document.getElementById('calendarGrid');
+  const y = currentMonth.getFullYear(), m = currentMonth.getMonth();
+  title.textContent = currentMonth.toLocaleDateString('en-US',{month:'long', year:'numeric'});
+  grid.innerHTML='';
+  const firstDay = new Date(y,m,1);
+  let start = (firstDay.getDay()+6)%7; // monday 0
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  for(let i=0;i<start;i++) grid.innerHTML+=`<div></div>`;
+  const today = new Date(); today.setHours(0,0,0,0);
+  for(let d=1; d<=daysInMonth; d++){
+    const date = new Date(y,m,d);
+    const isPast = date < today;
+    const isToday = date.getTime()===today.getTime();
+    const isSelected = selectedDate && date.toDateString()===selectedDate.toDateString();
+    grid.innerHTML+=`<div onclick="${isPast?'':'selectDate('+y+','+m+','+d+')'}" class="calendar-day ${isSelected?'selected':''} ${isPast?'disabled':''} ${isToday?'today':''}">${d}</div>`
+  }
+  renderTimeSlots();
+}
+function changeMonth(dir){
+  currentMonth.setMonth(currentMonth.getMonth()+dir);
+  buildCalendar();
+}
+function selectDate(y,m,d){
+  selectedDate = new Date(y,m,d);
+  buildCalendar();
+  updateSummaries();
+}
+const slots = ["09:00 AM","10:00 AM","11:30 AM","01:00 PM","02:30 PM","04:00 PM","05:30 PM"];
+function renderTimeSlots(){
+  const wrap = document.getElementById('timeSlots');
+  const hint = document.getElementById('timeHint');
+  if(!selectedDate){
+    wrap.innerHTML=''; hint.textContent='Select a date to see times.'; return;
+  }
+  hint.textContent = selectedDate.toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'});
+  wrap.innerHTML = slots.map(t=>{
+    const active = selectedTime===t;
+    const busy = Math.random() < 0.15;
+    return `<button onclick="selectTime('${t}')" ${busy?'disabled':''} class="py-2.5 rounded-full border text-sm font-semibold ${busy?'bg-zinc-100 text-muted line-through':'hover:border-ink'} ${active?'bg-ink text-white border-ink': busy?'':'bg-white'}">${t} ${busy?'• busy':''}</button>`
+  }).join('');
+}
+function selectTime(t){ selectedTime=t; buildCalendar(); updateSummaries(); }
+
+// Summaries & totals
+function totals(){
+  const subtotal = cart.reduce((a,c)=>a+c.price,0);
+  const fee = Math.round(subtotal*0.05);
+  const tax = Math.round(subtotal*0.08);
+  const discount = coupon ? Math.round(subtotal*coupon.pct) : 0;
+  const grand = subtotal + fee + tax - discount;
+  const duration = cart.reduce((a,c)=>a+c.duration,0);
+  return {subtotal, fee, tax, discount, grand, duration};
+}
+function updateSummaries(){
+  const t = totals();
+  document.getElementById('totalDuration').textContent = t.duration? t.duration+" min" : "0 min";
+  // booking summary
+  const bs = document.getElementById('bookingSummary');
+  if(cart.length===0) bs.innerHTML = `<div class="text-sm text-muted bg-paper border rounded-xl p-4 text-center">No services yet — add from above.</div>`;
+  else bs.innerHTML = cart.map(c=>`
+    <div class="flex items-center justify-between bg-paper border rounded-2xl p-3">
+      <div><div class="font-bold text-sm">${c.name}</div><div class="text-xs text-muted">${c.duration} min • ${c.vehicle}</div></div>
+      <div class="font-bold">$${c.price}</div>
+    </div>
+  `).join('');
+  document.getElementById('sumSubtotal').textContent = "$"+t.subtotal;
+  document.getElementById('sumFee').textContent = "$"+t.fee;
+  document.getElementById('sumTax').textContent = "$"+t.tax;
+  document.getElementById('sumTotal').textContent = "$"+t.grand;
+
+  // cart page
+  document.getElementById('cartList').innerHTML = cart.length? cart.map((c,i)=>`
+    <div class="flex gap-4 border rounded-2xl p-4 bg-paper">
+      <div class="w-12 h-12 bg-white border rounded-xl flex items-center justify-center"><i data-lucide="${c.icon}" class="w-5 h-5"></i></div>
+      <div class="flex-1">
+        <div class="font-bold text-sm">${c.name}</div>
+        <div class="text-xs text-muted">${c.desc}</div>
+        <div class="text-xs text-muted mt-1">${c.duration} min • ${c.vehicle}</div>
+      </div>
+      <div class="text-right">
+        <div class="font-bold">$${c.price}</div>
+        <button onclick="addToCart('${c.id}')" class="text-xs font-bold underline text-brand mt-2">Remove</button>
+      </div>
+    </div>
+  `).join('') : `<div class="text-center py-10 text-muted">Your cart is empty. Add services to continue.</div>`;
+  lucide.createIcons();
+  document.getElementById('cartItemsCount').textContent = cart.length+" items";
+  document.getElementById('cartAppointment').innerHTML = selectedDate && selectedTime ? `
+    <div class="font-bold">${selectedDate.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'})} • ${selectedTime}</div>
+    <div class="text-xs text-muted mt-1">Vehicle: ${selectedVehicle.name} • ${selectedVehicle.year}</div>
+    <div class="text-xs text-muted">Bay 7 • Advisor Maya Chen</div>
+  ` : `<div class="text-muted">Pick a date & time in Book Service step.</div>`;
+  document.getElementById('cartSubtotal').textContent = "$"+t.subtotal;
+  document.getElementById('cartDiscount').textContent = "-$"+t.discount;
+  document.getElementById('cartFees').textContent = "$"+(t.fee+t.tax);
+  document.getElementById('cartTotal').textContent = "$"+t.grand;
+  document.getElementById('cartCount').textContent = cart.length;
+  // drawer
+  document.getElementById('drawerList').innerHTML = document.getElementById('cartList').innerHTML;
+  document.getElementById('drawerSubtotal').textContent = "$"+t.subtotal;
+  document.getElementById('drawerTotal').textContent = "$"+t.grand;
+  // checkout
+  document.getElementById('checkoutSummary').innerHTML = cart.map(c=>`<div class="flex justify-between"><span>${c.name}</span><b>$${c.price}</b></div>`).join('') || `<div class="text-muted">No items</div>`;
+  document.getElementById('ckVehicle').textContent = selectedVehicle.name+" • "+selectedVehicle.year;
+  document.getElementById('ckWhen').textContent = selectedDate && selectedTime ? selectedDate.toLocaleDateString() + " " + selectedTime : "Pick a slot";
+  document.getElementById('ckTotal').textContent = "$"+t.grand;
+  document.getElementById('payAmount').textContent = "$"+t.grand;
+  document.getElementById('bkCount').textContent = localStorage.getItem('dl_bookings') ? JSON.parse(localStorage.getItem('dl_bookings')).length + " rows" : "0 rows";
+  // stepper progress
+  const step = cart.length? (selectedDate && selectedTime ? 4 : 3) : (selectedVehicle?2:1);
+  document.querySelectorAll('.step').forEach(el=>{
+    const n = +el.dataset.step;
+    const circle = el.querySelector('span:first-child');
+    const label = el.querySelector('span:last-child');
+    circle.className = "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border";
+    label.className="text-sm font-medium text-muted";
+    if(n < step){ circle.classList.add('step-done'); label.classList.add('text-ink'); label.classList.remove('text-muted'); }
+    else if(n===step){ circle.classList.add('step-active'); label.classList.remove('text-muted'); label.classList.add('text-ink','font-semibold'); }
+    else { circle.classList.add('bg-white'); }
+  });
+}
+
+// Nav
+function showView(name){
+  const map = {landing:'view-landing', vehicles:'view-vehicles', booking:'view-booking', cart:'view-cart', checkout:'view-checkout', success:'view-success', backend:'view-backend'};
+  Object.values(map).forEach(id=> document.getElementById(id).classList.add('hidden'));
+  document.getElementById(map[name]).classList.remove('hidden');
+  document.querySelectorAll('.nav-pill').forEach(b=> b.classList.remove('bg-ink','text-white'));
+  const active = document.querySelector(`[data-nav="${name}"]`);
+  if(active) active.classList.add('bg-ink','text-white');
+  window.scrollTo({top:0, behavior:'smooth'});
+  // stepper visibility
+  document.getElementById('stepper').style.display = (['vehicles','booking','cart','checkout'].includes(name)) ? 'block':'none';
+  lucide.createIcons();
+}
+function goToCart(){
+  if(cart.length===0) return toast('Add at least one service');
+  if(!document.getElementById('custName').value) toast('Enter your name for the booking');
+  if(!selectedDate || !selectedTime) toast('Pick a date & time');
+  showView('cart');
+  updateSummaries();
+}
+function clearCart(){ cart=[]; coupon=null; updateSummaries(); renderServices(); toast('Cart cleared'); }
+function applyCoupon(){
+  const code = document.getElementById('couponInput').value.trim().toUpperCase();
+  if(code==='SAVE20'){ coupon={code, pct:0.2}; toast('Coupon SAVE20 applied — 20% off'); }
+  else if(code==='WELCOME10'){ coupon={code, pct:0.1}; toast('WELCOME10 applied'); }
+  else toast('Invalid coupon. Try SAVE20');
+  updateSummaries();
+}
+function toggleCart(show){
+  document.getElementById('cartDrawer').classList.toggle('hidden', !show);
+}
+function toggleMobile(){ document.getElementById('mobileMenu').classList.toggle('hidden') }
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.remove('hidden');
+  setTimeout(()=>t.classList.add('hidden'),2200);
+}
+
+// Checkout
+function processPayment(){
+  const num = document.getElementById('ccNumber').value.replace(/\s/g,'');
+  const exp = document.getElementById('ccExp').value.trim();
+  const cvc = document.getElementById('ccCvc').value.trim();
+  const name = document.getElementById('ccName').value.trim();
+  const email = document.getElementById('custEmail').value.trim();
+  if(cart.length===0) return toast('Cart empty');
+  if(!selectedDate || !selectedTime) return toast('Select appointment time');
+  if(num.length<16) return toast('Enter valid card number');
+  if(!exp || !cvc) return toast('Enter expiry & CVC');
+  if(!name) return toast('Enter name on card');
+
+  document.getElementById('paySpinner').classList.remove('hidden');
+  document.getElementById('payText').classList.add('opacity-50');
+  setTimeout(()=>{
+    document.getElementById('paySpinner').classList.add('hidden');
+    document.getElementById('payText').classList.remove('opacity-50');
+    // save booking
+    const bookings = JSON.parse(localStorage.getItem('dl_bookings')||'[]');
+    const record = {
+      id: bookingId,
+      vehicle: selectedVehicle,
+      services: cart,
+      date: selectedDate.toLocaleDateString(),
+      time: selectedTime,
+      customer: {name: document.getElementById('custName').value || name, email: email || 'alex@email.com', phone: document.getElementById('custPhone').value},
+      total: totals().grand
+    };
+    bookings.push(record);
+    localStorage.setItem('dl_bookings', JSON.stringify(bookings));
+
+    // success view data
+    document.getElementById('successId').textContent = "#"+bookingId;
+    document.getElementById('successEmail').textContent = record.customer.email;
+    document.getElementById('successDetails').innerHTML = `
+      <div class="flex justify-between"><span class="text-muted">Vehicle</span><b>${record.vehicle.name} • ${record.vehicle.year}</b></div>
+      <div class="flex justify-between"><span class="text-muted">Services (${record.services.length})</span><b>${record.services.map(s=>s.name).join(', ')}</b></div>
+      <div class="flex justify-between"><span class="text-muted">When</span><b>${record.date} • ${record.time}</b></div>
+      <div class="flex justify-between"><span class="text-muted">Total paid</span><b>$${record.total}</b></div>
+      <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-bold">✓ Payment encrypted via Supabase Vault • Receipt sent</div>
+    `;
+    bookingId = "DL-" + Math.floor(100000 + Math.random()*900000);
+    document.getElementById('miniBookingId').textContent = "#"+bookingId;
+    showView('success');
+    launchConfetti();
+    cart=[]; coupon=null; updateSummaries();
+  },1400);
+}
+function copyId(){ navigator.clipboard.writeText(document.getElementById('successId').textContent); toast('Booking ID copied'); }
+function launchConfetti(){
+  const layer = document.getElementById('confettiLayer');
+  layer.innerHTML='';
+  for(let i=0;i<30;i++){
+    const d=document.createElement('div');
+    d.className='confetti';
+    d.style.left=Math.random()*100+'%';
+    d.style.background=['#FF4D1C','#D6FF2A','#0F1115','#fff'][Math.floor(Math.random()*4)];
+    d.style.animationDelay=(Math.random()*0.8)+'s';
+    d.style.borderRadius=Math.random()>0.5?'999px':'4px';
+    layer.appendChild(d);
+  }
+}
+function mockApi(type){
+  const res = document.getElementById('apiResponse');
+  res.classList.remove('hidden');
+  const payloads={
+    register: `{\n  "id": "usr_${Math.random().toString(36).slice(2,8)}",\n  "email": "alex@email.com",\n  "message": "User created — Supabase auth.users"\n}`,
+    vehicles: `[\n  { "id": 1, "name": "Vanguard S-350", "type": "Sedan" },\n  { "id": 2, "name": "Terra X Trail", "type": "SUV" }\n]`,
+    book: `{\n  "booking_id": "${bookingId}",\n  "vehicle_id": ${selectedVehicle.id},\n  "slot": "${selectedDate?selectedDate.toLocaleDateString():''} ${selectedTime||''}",\n  "status": "confirmed"\n}`,
+    payment: `{\n  "status": "succeeded",\n  "vault_token": "tok_${Math.random().toString(36).slice(2,10)}",\n  "amount": ${totals().grand*100}\n}`
+  };
+  res.textContent = payloads[type];
+}
+function seedData(){
+  localStorage.setItem('dl_bookings', JSON.stringify([{id:bookingId, demo:true},{id:"DL-884221", demo:true}]));
+  updateSummaries(); toast('Seeded 2 bookings to Supabase mock');
+}
+
+init();
+showView('landing');
+document.getElementById('stepper').style.display='none';
+</script>
+</body>
+</html>
